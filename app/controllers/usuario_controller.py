@@ -1,46 +1,118 @@
 from app.extensions import db
-from app.models import Usuario
+from app.models import Usuario, AlunoCurso, CoordenadorCurso, Curso, Submissao
+from sqlalchemy import select, func
 from werkzeug.security import generate_password_hash
-from flask_jwt_extended import get_jwt
+from flask_jwt_extended import get_jwt, get_jwt_identity
 
 
 def cadastrar_usuario_controller(data):
     role = get_jwt().get("role")
-
     tipo_novo_usuario = data["tipo"]
+    id_curso = data.get("id_curso")
 
+    # Validações de permissão
     if role == "coordenador" and tipo_novo_usuario != "aluno":
-        return {
-            "success": False,
-            "message": "Coordenador só pode cadastrar alunos."
-        }, 403
-        
+        return {"success": False, "message": "Coordenador só pode cadastrar alunos."}, 403
     if role == "super_admin" and tipo_novo_usuario not in ("aluno", "coordenador"):
-        return {
-            "success": False,
-            "message": "Tipo de usuário inválido."
-        }, 400
-        
+        return {"success": False, "message": "Tipo de usuário inválido."}, 400
     if tipo_novo_usuario == "aluno" and not data.get("matricula"):
-        return {
-            "success": False,
-            "message": "Aluno precisa de matrícula."
-        }, 400    
-    
-    senha_hash = generate_password_hash(data["senha"])
+        return {"success": False, "message": "Aluno precisa de matrícula."}, 400
+    if not id_curso:
+        return {"success": False, "message": "É necessário informar o id_curso."}, 400
 
+    # Verificar se curso existe
+    curso = db.session.execute(select(Curso).where(Curso.id == id_curso)).scalar_one_or_none()
+    if not curso:
+        return {"success": False, "message": "Curso não encontrado."}, 404
+
+    senha_hash = generate_password_hash(data["senha"])
     novo_usuario = Usuario(
         nome=data["nome"],
         email=data["email"],
-        senha=senha_hash,
-        tipo=data["tipo"],
+        senhaHash=senha_hash,
+        tipo=tipo_novo_usuario,
         matricula=data.get("matricula")
     )
-
     db.session.add(novo_usuario)
-    db.session.commit()
+    db.session.flush()  # garante que o id seja gerado
 
-    return {
-        "success": True,
-        "message": "Cadastro efetuado com sucesso."
-    }, 201
+    # Vincular ao curso
+    if tipo_novo_usuario == "aluno":
+        vinculo = AlunoCurso(id_aluno=novo_usuario.id, id_curso=id_curso)
+    else:
+        vinculo = CoordenadorCurso(id_coordenador=novo_usuario.id, id_curso=id_curso)
+    db.session.add(vinculo)
+
+    db.session.commit()
+    return {"success": True, "message": "Cadastro efetuado com sucesso."}, 201
+
+
+def listar_alunos_controller():
+    role = get_jwt().get("role")
+    if role not in ("coordenador", "super_admin"):
+        return {"success": False, "message": "Acesso negado."}, 403
+
+    # Query base: alunos com seus cursos e soma de horas aprovadas
+    query = (
+        select(
+            Usuario.id,
+            Usuario.nome,
+            Usuario.matricula,
+            Curso.nome.label("curso_nome"),
+            Curso.carga_horaria.label("total_horas"),
+            func.coalesce(func.sum(Submissao.carga_horaria_aprovada), 0).label("horas_concluidas")
+        )
+        .join(AlunoCurso, AlunoCurso.id_aluno == Usuario.id)
+        .join(Curso, Curso.id == AlunoCurso.id_curso)
+        .outerjoin(Submissao, (Submissao.id_aluno == Usuario.id) & (Submissao.status == "aprovado"))
+        .where(Usuario.tipo == "aluno")
+        .group_by(Usuario.id, Curso.id)
+    )
+
+    alunos = db.session.execute(query).all()
+    resultado = []
+    for aluno in alunos:
+        progresso = (aluno.horas_concluidas / aluno.total_horas * 100) if aluno.total_horas > 0 else 0
+        resultado.append({
+            "id": aluno.id,
+            "nome": aluno.nome,
+            "matricula": aluno.matricula,
+            "curso": aluno.curso_nome,
+            "horas_concluidas": int(aluno.horas_concluidas),
+            "total_horas": aluno.total_horas,
+            "progresso": round(progresso, 1)
+        })
+
+    return {"success": True, "alunos": resultado}, 200
+
+
+def listar_coordenadores_controller():
+    role = get_jwt().get("role")
+    if role != "super_admin":
+        return {"success": False, "message": "Acesso negado."}, 403
+
+    query = (
+        select(
+            Usuario.id,
+            Usuario.nome,
+            Usuario.email,
+            Usuario.matricula,
+            func.group_concat(Curso.nome, ', ').label("cursos")
+        )
+        .join(CoordenadorCurso, CoordenadorCurso.id_coordenador == Usuario.id)
+        .join(Curso, Curso.id == CoordenadorCurso.id_curso)
+        .where(Usuario.tipo == "coordenador")
+        .group_by(Usuario.id)
+    )
+    coordenadores = db.session.execute(query).all()
+    resultado = [
+        {
+            "id": c.id,
+            "nome": c.nome,
+            "email": c.email,
+            "matricula": c.matricula,
+            "cursos": c.cursos.split(', ') if c.cursos else []
+        }
+        for c in coordenadores
+    ]
+    return {"success": True, "coordenadores": resultado}, 200

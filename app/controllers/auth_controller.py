@@ -15,7 +15,7 @@ def login_controller(data):
             "message": "Usuário não encontrado."
         }, 404
     
-    elif not check_password_hash(usuario.senha, data["senha"]):
+    elif not check_password_hash(usuario.senhaHash, data["senha"]):
         return {
             "success": False,
             "message": "Credenciais inválidas."
