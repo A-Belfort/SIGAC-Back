@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 
 def dashboard_controller():
     role = get_jwt().get("role")
-    if role not in ("super_admin", "coordenador"):
+    if role not in ("admin", "coordenador"):
         return {"success": False, "message": "Acesso negado."}, 403
 
     # 1. Métricas principais

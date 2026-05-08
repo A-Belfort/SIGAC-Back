@@ -16,7 +16,7 @@ def criar_submissao():
         return {"success": False, "message": "Erro interno."}, 500
 
 @bp.route("/listar", methods=["GET"])
-@verificar_role(["aluno", "coordenador", "super_admin"])
+@verificar_role(["aluno", "coordenador", "admin"])
 def listar_submissoes():
     try:
         status = request.args.get("status")

@@ -5,7 +5,7 @@ from app.controllers.relatorio_controller import dashboard_controller
 bp = Blueprint("relatorio", __name__, url_prefix="/api/relatorios")
 
 @bp.route("/dashboard", methods=["GET"])
-@verificar_role(["super_admin", "coordenador"])
+@verificar_role(["admin", "coordenador"])
 def dashboard():
     response, status = dashboard_controller()
     return response, status

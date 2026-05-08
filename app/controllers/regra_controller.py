@@ -5,7 +5,7 @@ from flask_jwt_extended import get_jwt
 
 def listar_regras_controller(curso_id=None):
     role = get_jwt().get("role")
-    if role not in ("super_admin", "coordenador"):
+    if role not in ("admin", "coordenador"):
         return {"success": False, "message": "Acesso negado."}, 403
 
     query = select(RegraAtividade)
@@ -28,8 +28,8 @@ def listar_regras_controller(curso_id=None):
 
 def criar_regra_controller(data):
     role = get_jwt().get("role")
-    if role != "super_admin":
-        return {"success": False, "message": "Apenas super_admin pode criar regras."}, 403
+    if role != "admin":
+        return {"success": False, "message": "Apenas admin pode criar regras."}, 403
 
     nova = RegraAtividade(
         area=data["area"],
@@ -45,7 +45,7 @@ def criar_regra_controller(data):
 
 def atualizar_regra_controller(id_regra, data):
     role = get_jwt().get("role")
-    if role != "super_admin":
+    if role != "admin":
         return {"success": False, "message": "Apenas super_admin pode editar regras."}, 403
 
     regra = db.session.get(RegraAtividade, id_regra)
@@ -63,8 +63,8 @@ def atualizar_regra_controller(id_regra, data):
 
 def excluir_regra_controller(id_regra):
     role = get_jwt().get("role")
-    if role != "super_admin":
-        return {"success": False, "message": "Apenas super_admin pode excluir regras."}, 403
+    if role != "admin":
+        return {"success": False, "message": "Apenas admin pode excluir regras."}, 403
 
     regra = db.session.get(RegraAtividade, id_regra)
     if not regra:

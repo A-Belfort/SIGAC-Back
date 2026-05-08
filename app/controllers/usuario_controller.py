@@ -13,7 +13,7 @@ def cadastrar_usuario_controller(data):
     # Validações de permissão
     if role == "coordenador" and tipo_novo_usuario != "aluno":
         return {"success": False, "message": "Coordenador só pode cadastrar alunos."}, 403
-    if role == "super_admin" and tipo_novo_usuario not in ("aluno", "coordenador"):
+    if role == "admin" and tipo_novo_usuario not in ("aluno", "coordenador"):
         return {"success": False, "message": "Tipo de usuário inválido."}, 400
     if tipo_novo_usuario == "aluno" and not data.get("matricula"):
         return {"success": False, "message": "Aluno precisa de matrícula."}, 400
@@ -49,7 +49,7 @@ def cadastrar_usuario_controller(data):
 
 def listar_alunos_controller():
     role = get_jwt().get("role")
-    if role not in ("coordenador", "super_admin"):
+    if role not in ("coordenador", "admin"):
         return {"success": False, "message": "Acesso negado."}, 403
 
     # Query base: alunos com seus cursos e soma de horas aprovadas
@@ -88,7 +88,7 @@ def listar_alunos_controller():
 
 def listar_coordenadores_controller():
     role = get_jwt().get("role")
-    if role != "super_admin":
+    if role != "admin":
         return {"success": False, "message": "Acesso negado."}, 403
 
     query = (

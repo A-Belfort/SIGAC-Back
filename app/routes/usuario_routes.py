@@ -5,7 +5,7 @@ from app.middlewares import verificar_role
 bp = Blueprint("usuario", __name__, url_prefix="/api/usuarios")
 
 @bp.route("/cadastrar", methods=["POST"])
-@verificar_role(["super_admin", "coordenador"])
+@verificar_role(["admin", "coordenador"])
 def cadastrar_usuario():
     try:
         data = request.get_json()
@@ -16,7 +16,7 @@ def cadastrar_usuario():
         return {"success": False, "message": "Erro interno."}, 500
 
 @bp.route("/listar_alunos", methods=["GET"])
-@verificar_role(["super_admin", "coordenador"])
+@verificar_role(["admin", "coordenador"])
 def listar_alunos():
     try:
         response, status = listar_alunos_controller()
@@ -26,7 +26,7 @@ def listar_alunos():
         return {"success": False, "message": "Erro interno."}, 500
 
 @bp.route("/listar_coordenadores", methods=["GET"])
-@verificar_role(["super_admin"])
+@verificar_role(["admin"])
 def listar_coordenadores():
     try:
         response, status = listar_coordenadores_controller()
